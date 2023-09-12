@@ -8,6 +8,7 @@ import { Article } from './article.entity';
 import { IArticleRO, IArticlesRO, ICommentsRO } from './article.interface';
 import { Comment } from './comment.entity';
 import { CreateArticleDto, CreateCommentDto } from './dto';
+import { Tag } from '../tag/tag.entity';
 
 @Injectable()
 export class ArticleService {
@@ -19,6 +20,8 @@ export class ArticleService {
     private readonly commentRepository: EntityRepository<Comment>,
     @InjectRepository(User)
     private readonly userRepository: EntityRepository<User>,
+    @InjectRepository(Tag)
+    private readonly tagRepository: EntityRepository<Tag>,
   ) {}
 
   async findAll(userId: number, query: Record<string, string>): Promise<IArticlesRO> {
@@ -154,7 +157,14 @@ export class ArticleService {
       { populate: ['followers', 'favorites', 'articles'] },
     );
     const article = new Article(user!, dto.title, dto.description, dto.body);
-    article.tagList.push(...dto.tagList);
+    article.tagList = dto.tagList.split(',').map((s) => s.trim());
+    for (var tagValue of article.tagList) {
+      const existingTag = await this.tagRepository.findOne({ tag: tagValue });
+      if (existingTag) {
+        continue;
+      }
+      const newTag = this.tagRepository.create({ tag: tagValue });
+    }
     user?.articles.add(article);
     await this.em.flush();
 
@@ -174,6 +184,12 @@ export class ArticleService {
   }
 
   async delete(slug: string) {
+    const article = await this.articleRepository.findOne({ slug });
+    if (article) {
+      for (var tagValue of article.tagList) {
+        const deleteTag = await this.tagRepository.nativeDelete({ tag: tagValue });
+      }
+    }
     return this.articleRepository.nativeDelete({ slug });
   }
 }
