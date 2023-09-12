@@ -154,7 +154,7 @@ export class ArticleService {
       { populate: ['followers', 'favorites', 'articles'] },
     );
     const article = new Article(user!, dto.title, dto.description, dto.body);
-    article.tagList.push(...dto.tagList);
+    article.tagList = dto.tagList.split(",").map((s) => s.trim());
     user?.articles.add(article);
     await this.em.flush();
 
